@@ -18,6 +18,13 @@ class Game:
         
         print("New Game Initiated")
     
+    def is_weighted(self):
+        # Count how many indices are non-zero
+        non_zero_count = sum(1 for x in self.wins  if x != 0)
+        
+        # Return True if exactly one index is non-zero
+        return non_zero_count == 1
+
     def get_node_count(self):
         return self.node_count
     
@@ -48,25 +55,47 @@ class Game:
         elif self.current_player == 2:
             self.current_player = 1
 
-    def ai_move(self):
+    import random
+
+    def ai_move(self, type="random"):
         # Filter weights based on legal moves
         valid_weights = [
             max(0, min(self.current_node.move_weights[i], 1)) if self.current_node.legal_moves[i] else 0
             for i in range(len(self.current_node.move_weights))
         ]
 
-        # Check if there are any valid moves
-        total_weight = sum(valid_weights)
-        if total_weight == 0:
-            # No legal moves, declare a tie
-            return None
+        # Get the list of legal moves (indices where legal_moves[i] is True)
+        legal_moves = [i for i, is_legal in enumerate(self.current_node.legal_moves) if is_legal]
 
-        # Normalize the weights so they sum to 1 (probability distribution)
-        normalized_weights = [weight / total_weight for weight in valid_weights]
-
-        # Select a move using the normalized weights
-        selected_move = random.choices(range(len(self.current_node.move_weights)), weights=normalized_weights, k=1)[0]
+        # Check if there are any valid legal moves
+        if not legal_moves:
+            return None  # No legal moves, declare a tie or handle the game-ending logic
         
+        # Normalize the weights so they sum to 1 (probability distribution)
+        total_weight = sum(valid_weights)
+        
+        # If all weights are zero, select randomly among legal moves
+        if total_weight == 0:
+            selected_move = random.choice(legal_moves)
+        else:
+            # Normalize weights for valid moves
+            normalized_weights = [valid_weights[i] / total_weight for i in legal_moves]
+
+            # Select a move using the normalized weights
+            if type == "random":
+                selected_move = random.choices(legal_moves, weights=normalized_weights, k=1)[0]
+            elif type == "best":
+                # Choose the move with the highest weight
+                selected_move = legal_moves[max(enumerate(normalized_weights), key=lambda x: x[1])[0]]
+
+        return selected_move
+
+    def get_player_move(self):
+        self.display()
+
+        print("Select Column for token: ")
+        selected_move = int(input())
+
         return selected_move
 
     def make_move(self, col, debug = False):
@@ -81,7 +110,7 @@ class Game:
             bool: True if the move was successful, False otherwise.
         """
         if col == None:
-            self.end_game(winner=0, debug=debug)
+            self.end_game(losser=0, debug=debug)
             return False
         old_key = self.board.board_to_key()
         if self.board.drop_disc(col, self.current_player):
@@ -152,15 +181,16 @@ class Game:
 
         return count >= 4
     
-    def end_game(self, winner, debug=False):
+    def end_game(self, losser, debug=False):
         self.games += 1
-        if winner == 0: # No winner or Tie
+        if losser == 0: # No winner or Tie
             if debug:
                 print("Tie game!")
-            self.adjust_weights_for_tie(learning_rate=0.5, debug=debug)
+            self.history.pop()
+            self.adjust_weights(winner= 0, learning_rate=0.5, debug=debug)
             self.wins[0] += 1
-        elif winner == 1:
-            self.adjust_weights(2, 0.5, debug=debug)
+        elif losser == 1:
+            self.adjust_weights(winner=2, learning_rate=0.5, debug=debug)
             if debug:
                 print("Player 2 wins")
             self.wins[2] += 1
@@ -191,9 +221,12 @@ class Game:
         if(debug):
             print("Adjusting weights based on game history...")
         depth = 1
+        last_node = None
         for node in reversed(self.history):  # Traverse history in reverse order
             if node.lastmove is not None:
-                node.adjust_weights(winner, depth, learning_rate, debug)
+
+                node.adjust_weights(winner, depth, learning_rate, debug, last_node)
+                last_node = node
             depth += 1
     
     def reset_game(self):
@@ -218,3 +251,15 @@ class Game:
     def reset_wins(self):
         self.games = 0
         self.wins = [0,0,0]
+
+    def count_average_node_visitation(self):
+        # Displays the average amount of times a node has been visited
+        pass
+
+    def save_model(self):
+        # Saves the model to a file
+        pass
+
+    def load_model(self):
+        # Loads the model from a file
+        pass

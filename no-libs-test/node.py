@@ -24,7 +24,7 @@ class Node:
             Initiates moves to 0.5 if legal and 0 if illegal
         '''
         for col, is_legal in enumerate(legal_moves):
-            self.move_weights[col] = 0.5 if is_legal else 0
+            self.move_weights[col] = 0.50 if is_legal else 0
         
 
 
@@ -39,10 +39,10 @@ class Node:
         final_rate = 1.0/(depth*depth) * rate
         old_weight = self.move_weights[self.lastmove]
         result = "tie"
-        if self.move_weights[self.lastmove] <= 0.6: # Tie trends toward 0.6
-            self.move_weights[self.lastmove] = min(0.6, self.move_weights[self.lastmove]+final_rate)
+        if self.move_weights[self.lastmove] <= 0.5: # Tie trends toward 0.6
+            self.move_weights[self.lastmove] = min(0.5, self.move_weights[self.lastmove]+final_rate)
         else:
-            self.move_weights[self.lastmove] = max(0.6, self.move_weights[self.lastmove]-final_rate)
+            self.move_weights[self.lastmove] = max(0.5, self.move_weights[self.lastmove]-final_rate)
         
 
         self.move_weights[self.lastmove] = max(0, min(self.move_weights[self.lastmove], 1))
@@ -55,18 +55,49 @@ class Node:
                 f"Adjusted Weight: {self.move_weights[self.lastmove]:.3f}"
             )
 
-    def adjust_weights(self, winner, depth, rate, debug = False):
+    def get_best_move(self):
+        return max(self.move_weights)
+
+    def adjust_weights(self, winner, depth, rate, debug = False, last_node = None):
+
+        old_weight = self.move_weights[self.lastmove]
+        
+        if (depth == 1):
+            if (self.player == winner):
+                self.move_weights[self.lastmove] = 1 # winning move!
+            elif(winner == 0): # Tie case
+                self.move_weights[self.lastmove] = 0.25 # meh move
+            else:
+                print("Something bad happened!")
+        else: # backprop moves
+            # print("Last_node.get_best_move() = ", last_node.get_best_move())
+            if (last_node.get_best_move() == 0.25):
+                self.move_weights[self.lastmove] = .25
+            elif (last_node.get_best_move() == 0):
+                self.move_weights[self.lastmove] = 0.9
+            else:
+                self.move_weights[self.lastmove] = 1 - last_node.get_best_move()
+
+        if (self.player == winner):
+            result = "win"
+        elif (winner == 0):
+            result = "tie"
+        else:
+            result = "loss"
+
+        '''
         final_rate = 1.0/(depth*depth) * rate
         old_weight = self.move_weights[self.lastmove]
-        if self.player == winner:
+        if self.player != winner:
             self.move_weights[self.lastmove] += final_rate
             result = "win"
         else:
             self.move_weights[self.lastmove] -= final_rate
             result = "loss"
-        
 
         self.move_weights[self.lastmove] = max(0, min(self.move_weights[self.lastmove], 1))
+        '''
+
         if(debug):
             print(
                 f"Node ID: {self.id}, "
