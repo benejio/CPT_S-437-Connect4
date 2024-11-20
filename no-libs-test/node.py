@@ -9,6 +9,7 @@ class Node:
         self.id = id
         self.move_weights = [0.5 for _ in range(cols)] # baseline weights
         self.legal_moves = legal_moves
+        self.next_move_keys = [None for _ in range(cols)]
         self.lastmove = None
         self.visits = 0     # Number of times this node has been visited
         self.player = player # either 1 or 2
@@ -16,7 +17,20 @@ class Node:
 
         self.__initial_move_weights(legal_moves=legal_moves)
 
+    def display_weights(self):
+        print("Move Weights:")
+        for i, weight in enumerate(self.move_weights):
+            if self.legal_moves[i]:
+                print(f"Column {i}: {weight}")
+            else:
+                print(f"Column {i}: (Illegal move)")
 
+
+    def update_next_key(self, col, key):
+        self.next_move_keys[col] = key
+    
+    def get_next_key(self, col):
+        return self.next_move_keys[col]
     
     def __initial_move_weights(self, legal_moves):
         '''
@@ -35,17 +49,49 @@ class Node:
     def increment_visits(self):
         self.visits += 1
 
-    def adjust_weights_for_tie(self, depth, rate, debug = False):
-        final_rate = 1.0/(depth*depth) * rate
-        old_weight = self.move_weights[self.lastmove]
-        result = "tie"
-        if self.move_weights[self.lastmove] <= 0.5: # Tie trends toward 0.6
-            self.move_weights[self.lastmove] = min(0.5, self.move_weights[self.lastmove]+final_rate)
-        else:
-            self.move_weights[self.lastmove] = max(0.5, self.move_weights[self.lastmove]-final_rate)
+    def get_best_move(self):
+        return max(self.move_weights)
+    
+    def get_average_move(self):
+        total_weight = 0
+        legal_move_count = 0
         
+        for i in range(len(self.move_weights)):
+            if self.legal_moves[i]:
+                total_weight += self.move_weights[i]
+                legal_move_count += 1
 
-        self.move_weights[self.lastmove] = max(0, min(self.move_weights[self.lastmove], 1))
+        # Return 0 if there are no legal moves
+        if legal_move_count == 0:
+            return 0
+        
+        # Calculate and return the average weight
+        return total_weight / legal_move_count
+
+    def adjust_weights_fuzzy(self, winner, depth, rate, debug = False, last_node = None):
+
+        old_weight = self.move_weights[self.lastmove]
+
+        if (depth == 1):
+            if (self.player == winner):
+                self.move_weights[self.lastmove] = 1 # winning move!
+            elif(winner == 0): # Tie case
+                self.move_weights[self.lastmove] = 0.5 # meh move
+            else:
+                print("Something bad happened!")
+        else: # backprop moves
+            value = ((last_node.get_best_move() + last_node.get_average_move())) / 2.0
+            # print("Last_node.get_best_move() = ", last_node.get_best_move())
+            self.move_weights[self.lastmove] = 1 - value
+
+
+        if (self.player == winner):
+            result = "win"
+        elif (winner == 0):
+            result = "tie"
+        else:
+            result = "loss"
+
         if(debug):
             print(
                 f"Node ID: {self.id}, "
@@ -54,9 +100,6 @@ class Node:
                 f"Old Weight: {old_weight:.3f}, "
                 f"Adjusted Weight: {self.move_weights[self.lastmove]:.3f}"
             )
-
-    def get_best_move(self):
-        return max(self.move_weights)
 
     def adjust_weights(self, winner, depth, rate, debug = False, last_node = None):
 
@@ -84,19 +127,6 @@ class Node:
             result = "tie"
         else:
             result = "loss"
-
-        '''
-        final_rate = 1.0/(depth*depth) * rate
-        old_weight = self.move_weights[self.lastmove]
-        if self.player != winner:
-            self.move_weights[self.lastmove] += final_rate
-            result = "win"
-        else:
-            self.move_weights[self.lastmove] -= final_rate
-            result = "loss"
-
-        self.move_weights[self.lastmove] = max(0, min(self.move_weights[self.lastmove], 1))
-        '''
 
         if(debug):
             print(

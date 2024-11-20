@@ -18,6 +18,9 @@ class Game:
         
         print("New Game Initiated")
     
+    def get_wins(self):
+        return self.wins
+
     def is_weighted(self):
         # Count how many indices are non-zero
         non_zero_count = sum(1 for x in self.wins  if x != 0)
@@ -55,7 +58,6 @@ class Game:
         elif self.current_player == 2:
             self.current_player = 1
 
-    import random
 
     def ai_move(self, type="random"):
         # Filter weights based on legal moves
@@ -90,6 +92,9 @@ class Game:
 
         return selected_move
 
+    def display_weights(self):
+        self.current_node.display_weights()
+
     def get_player_move(self):
         self.display()
 
@@ -112,12 +117,13 @@ class Game:
         if col == None:
             self.end_game(losser=0, debug=debug)
             return False
-        old_key = self.board.board_to_key()
+        old_key = self.current_node.id
         if self.board.drop_disc(col, self.current_player):
             self.node_map[old_key].last_move(col)
             self.node_map[old_key].increment_visits()
             # Update the game state
-            new_state = self.board.board_to_key()
+            new_state = self.current_node.get_next_key(col) or self.board.board_to_key()
+
             # Retrieve or create the node for the new state
             self.__switch_current_player()
             self.current_node = self.__get_or_create_node(new_state)
@@ -225,7 +231,7 @@ class Game:
         for node in reversed(self.history):  # Traverse history in reverse order
             if node.lastmove is not None:
 
-                node.adjust_weights(winner, depth, learning_rate, debug, last_node)
+                node.adjust_weights_fuzzy(winner, depth, learning_rate, debug, last_node)
                 last_node = node
             depth += 1
     
