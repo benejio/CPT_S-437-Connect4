@@ -10,12 +10,18 @@ class Node:
         self.move_weights = [0.5 for _ in range(cols)] # baseline weights
         self.legal_moves = legal_moves
         self.next_move_keys = [None for _ in range(cols)]
+        self.explored = [False for _ in range(cols)]
         self.lastmove = None
         self.visits = 0     # Number of times this node has been visited
         self.player = player # either 1 or 2
         self.win = None # In this state, has a player already won?
 
         self.__initial_move_weights(legal_moves=legal_moves)
+
+    def fully_explored(self):
+        """Checks all cols that are leagal moves and have been explored"""
+        return all(explored for explored, legal in zip(self.explored, self.legal_moves) if legal)
+
 
     def display_weights(self):
         print("Move Weights:")
@@ -73,6 +79,9 @@ class Node:
         old_weight = self.move_weights[self.lastmove]
 
         if (depth == 1):
+            self.explored[self.lastmove] = True
+            if debug:
+                    print("Set node:", self.id, "explored to: ", True)
             if (self.player == winner):
                 self.move_weights[self.lastmove] = 1 # winning move!
             elif(winner == 0): # Tie case
@@ -80,6 +89,10 @@ class Node:
             else:
                 print("Something bad happened!")
         else: # backprop moves
+            if (last_node.fully_explored()):
+                self.explored[self.lastmove] = True
+                if debug:
+                    print("Set node:", self.id, "explored to: ", True)
             value = ((last_node.get_best_move() + last_node.get_average_move())) / 2.0
             # print("Last_node.get_best_move() = ", last_node.get_best_move())
             self.move_weights[self.lastmove] = 1 - value

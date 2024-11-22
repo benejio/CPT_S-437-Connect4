@@ -84,11 +84,38 @@ class Game:
             normalized_weights = [valid_weights[i] / total_weight for i in legal_moves]
 
             # Select a move using the normalized weights
-            if type == "random":
+            if type == "fullrandom":
+                selected_move = random.choices(legal_moves, k=1)[0]
+            elif type == "random":
                 selected_move = random.choices(legal_moves, weights=normalized_weights, k=1)[0]
             elif type == "best":
                 # Choose the move with the highest weight
                 selected_move = legal_moves[max(enumerate(normalized_weights), key=lambda x: x[1])[0]]
+            # Select a move using the "explore" strategy
+            elif type == "explore":
+                # Filter the legal moves to find unexplored ones
+                unexplored_moves = [
+                    i for i in legal_moves if not self.current_node.explored[i]
+                ]
+
+                if unexplored_moves:
+                    # If there are unexplored moves, prioritize them
+                    unexplored_weights = [valid_weights[i] for i in unexplored_moves]
+
+                    total_unexplored_weight = sum(unexplored_weights)
+                    if total_unexplored_weight == 0:
+                        # If all unexplored weights are zero, select randomly among unexplored moves
+                        selected_move = random.choice(unexplored_moves)
+                    else:
+                        # Normalize weights for unexplored moves
+                        normalized_unexplored_weights = [
+                            valid_weights[i] / total_unexplored_weight for i in unexplored_moves
+                        ]
+                        selected_move = random.choices(unexplored_moves, weights=normalized_unexplored_weights, k=1)[0]
+                else:
+                    # If all legal moves are already explored, select the best move
+                    selected_move = legal_moves[max(enumerate(normalized_weights), key=lambda x: x[1])[0]]
+
 
         return selected_move
 
@@ -121,6 +148,8 @@ class Game:
         if self.board.drop_disc(col, self.current_player):
             self.node_map[old_key].last_move(col)
             self.node_map[old_key].increment_visits()
+            if debug:
+                print("Explored: ",self.current_node.explored)
             # Update the game state
             new_state = self.current_node.get_next_key(col) or self.board.board_to_key()
 
@@ -230,9 +259,11 @@ class Game:
         last_node = None
         for node in reversed(self.history):  # Traverse history in reverse order
             if node.lastmove is not None:
-
+                if debug:
+                    print("Node:", node.id)
                 node.adjust_weights_fuzzy(winner, depth, learning_rate, debug, last_node)
                 last_node = node
+            
             depth += 1
     
     def reset_game(self):
@@ -243,6 +274,7 @@ class Game:
         self.board = GameBoard(self.board.rows, self.board.cols)
         self.current_node = self.__get_or_create_node(self.board.board_to_key())
         self.history = []
+        self.history.append(self.current_node)
         self.current_player = 1
 
     def display(self):

@@ -13,11 +13,11 @@ TODO: Make pure random ai
 TODO: MAke graph of amount of turns each game takes duing training
 '''
 
-def run_cycle(game, times):
+def run_cycle(game, times, type="random"):
     game.reset_wins()
     for _ in range(times):
 
-        while(game.make_move(game.ai_move(type="random"))):
+        while(game.make_move(game.ai_move(type=type))):
             pass
 
         game.reset_game()
@@ -33,7 +33,7 @@ def play_vs_ai(game):
     game.reset_game()
 
 def display_game(game):
-    while(game.make_move(game.ai_move(type="best"), debug=True)):
+    while(game.make_move(game.ai_move(type="explore"), debug=True)):
         game.display_weights()
         game.display()
         print("Press any button: ")
@@ -42,9 +42,24 @@ def display_game(game):
     game.display()
     game.reset_game()
 
+def display_game_two_strats(game, strat1, strat2):
+    turn = 0  # Counter to alternate between strategies
+
+    while game.make_move(game.ai_move(type=(strat1 if turn % 2 == 0 else strat2)), debug=True):
+        game.display_weights()
+        game.display()
+        print(f"Strategy: {strat1 if turn % 2 == 1 else strat2}")
+        print("Press any button: ")
+        input()
+        turn += 1  # Increment turn to switch strategy
+
+    print("End board:")
+    game.display()
+    game.reset_game()
+
 def main():
     # Create a game board
-    game = Game(4, 4)
+    game = Game(6, 7)
     
     # Display the initial board
     print("Initial board:")
@@ -53,11 +68,11 @@ def main():
     # Simulate some moves
 
     #while(game.is_weighted() == False):
-    run_cycle(game, 50000)
-    run_cycle(game, 50000)
-    run_cycle(game, 50000)
-    run_cycle(game, 50000)
-    run_cycle(game, 5000)
+    run_cycle(game, 500000, "explore")
+    run_cycle(game, 500000, "explore")
+    run_cycle(game, 500000, "explore")
+    run_cycle(game, 500000, "explore")
+    run_cycle(game, 5000, "best")
 
     print("Node Count: ", game.get_node_count())
     # 4x4 Game Node Count =          71840
@@ -67,6 +82,12 @@ def main():
     # 4x5 Game with simplification = 303086
 
     display_game(game)
+
+    display_game_two_strats(game, "best", "fullrandom")
+
+    display_game_two_strats(game, "best", "fullrandom")
+
+    display_game_two_strats(game, "best", "fullrandom")
 
     
 
