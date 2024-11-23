@@ -15,3 +15,16 @@ def test_in_range_col():
     result = game.drop_token(token, col)
     assert result == True
 
+def test_generate_id():
+    game = Board()
+    generated_id = game.generate_id()
+    generated_id2 = game.generate_id()
+    assert generated_id == generated_id2
+
+def test_generate_different_id():
+    game = Board()
+    generated_id = game.generate_id()
+    game.drop_token(1, 3)
+    generated_id2 = game.generate_id()
+    assert generated_id != generated_id2
+

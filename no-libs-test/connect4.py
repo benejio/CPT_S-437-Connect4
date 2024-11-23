@@ -59,7 +59,7 @@ def display_game_two_strats(game, strat1, strat2):
 
 def main():
     # Create a game board
-    game = Game(6, 7)
+    game = Game(5, 4)
     
     # Display the initial board
     print("Initial board:")
@@ -68,10 +68,10 @@ def main():
     # Simulate some moves
 
     #while(game.is_weighted() == False):
-    run_cycle(game, 500000, "explore")
-    run_cycle(game, 500000, "explore")
-    run_cycle(game, 500000, "explore")
-    run_cycle(game, 500000, "explore")
+    run_cycle(game, 50000, "explore")
+    run_cycle(game, 50000, "explore")
+    run_cycle(game, 50000, "explore")
+    run_cycle(game, 50000, "explore")
     run_cycle(game, 5000, "best")
 
     print("Node Count: ", game.get_node_count())
@@ -83,11 +83,11 @@ def main():
 
     display_game(game)
 
-    display_game_two_strats(game, "best", "fullrandom")
+    display_game_two_strats(game, "fullrandom", "best")
 
-    display_game_two_strats(game, "best", "fullrandom")
+    display_game_two_strats(game, "fullrandom", "best")
 
-    display_game_two_strats(game, "best", "fullrandom")
+    display_game_two_strats(game, "fullrandom", "best")
 
     
 

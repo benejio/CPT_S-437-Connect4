@@ -1,5 +1,6 @@
 import numpy as np
 from node import Node
+import hashlib
 
 class Board:
     '''
@@ -12,9 +13,20 @@ class Board:
         self.cols = cols
         self.board = np.full((rows, cols), None, dtype=object)
         self.column_heights = np.full(cols, rows - 1)
+        self.node_list = {}
 
-    def make_node(self):
-        return 
+    def __make_node(self):
+        id = self.generate_id()
+        new_node = Node(self, id)
+        self.node_list[id] = new_node
+        return self.node_list[id]
+    
+    def get_node(self, board_id):
+        '''
+            Return node from dict or make new node if it doesnt exist
+        '''
+        return self.node_list.get(board_id, self.__make_node())
+
 
     '''
         Returns the row that is next in drop order
@@ -40,16 +52,27 @@ class Board:
             return True
         return False 
 
+
     '''
-        Helper function for generate_id(...)
-        Returns true if the token at row, col can be used 
-            in a future connect 4
+    TODO: Change to optimized version
+
+    Generates an id based on the current board state
     '''
-    def __is_token_relevant(self, row, col):
-        token = self.board[row][col]
-
-
-
     def generate_id(self):
-        pass
+        encoded_board = np.where(self.board == None, -1, self.board)
+        
+        board_bytes = encoded_board.tobytes()
+        
+        board_id = hashlib.sha256(board_bytes).hexdigest()
+        
+        return board_id
 
+    def print(self):
+        '''
+        Print the current state of the game board.
+        '''
+        for row in self.board:
+            print(" | ".join([str(cell) if cell is not None else ' ' for cell in row]))
+            print("-" * (self.cols * 4 - 1))  # Adjust this to create a proper separator
+    
+    

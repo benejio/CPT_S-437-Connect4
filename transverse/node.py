@@ -5,10 +5,10 @@ class Node:
     
     '''
 
-    def __init__(self, board):
+    def __init__(self, board, id):
         self.__move_weights = [None for _ in range(board.cols)]
         self.__legal_moves = self.__init_legal_moves(board)
-        self.__id = self.__init_id(board)
+        self.__id = id
         pass
 
     def __init_legal_moves(self, board):
@@ -18,7 +18,4 @@ class Node:
                 moves[board.cols] = False
         return moves
 
-    def __init_id(self, board):
-        id = board.generate_id()
-        return id
     
