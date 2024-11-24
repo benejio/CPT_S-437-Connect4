@@ -13,6 +13,7 @@ class GameBoard:
         self.rows = rows
         self.cols = cols
         self.board = [[0 for _ in range(cols)] for _ in range(rows)]
+        self.relevant_board = [[0 for _ in range(cols)] for _ in range(rows)]
         self.last_dropped_token_row = None
         self.last_dropped_token_col = None
     
@@ -119,6 +120,7 @@ class GameBoard:
         for row in self.board:
             print(' '.join(str(cell) for cell in row))
     
+
     def drop_disc(self, col, player):
         """
         Simulates dropping a disc into a column for a player.
@@ -140,11 +142,23 @@ class GameBoard:
         print("Column is full.")
         return False
     
+    def undrop_disc(self, col):
+        if col < 0 or col >= self.cols:
+            print("Invalid column.")
+            return False
+        for row_idx in range(self.rows):  # Iterate from the top row to the bottom
+            if self.board[row_idx][col] != 0:
+                self.board[row_idx][col] = 0
+                return True
+        print("Column is empty.")
+        return False
     
-
-
+    
     def is_column_available(self, col):
         if col < 0 or col >= self.cols:
             print("Invalid column.")
             return False
         return self.board[0][col] == 0 # only need to check top row
+
+    def board_is_full(self):
+        return all(self.board[0][col] != 0 for col in range(self.cols))

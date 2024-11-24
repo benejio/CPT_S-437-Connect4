@@ -18,6 +18,8 @@ class Node:
 
         self.__initial_move_weights(legal_moves=legal_moves)
 
+        
+
     def fully_explored(self):
         """Checks all cols that are leagal moves and have been explored"""
         return all(explored for explored, legal in zip(self.explored, self.legal_moves) if legal)
@@ -92,7 +94,7 @@ class Node:
             if (last_node.fully_explored()):
                 self.explored[self.lastmove] = True
                 if debug:
-                    print("Set node:", self.id, "explored to: ", True)
+                    print("Set node:", self.id, "explored to: ", True, "from weights", last_node.move_weights)
             value = ((last_node.get_best_move() + last_node.get_average_move())) / 2.0
             # print("Last_node.get_best_move() = ", last_node.get_best_move())
             self.move_weights[self.lastmove] = 1 - value

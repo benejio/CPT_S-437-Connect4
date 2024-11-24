@@ -13,19 +13,25 @@ class Board:
         self.cols = cols
         self.board = np.full((rows, cols), None, dtype=object)
         self.column_heights = np.full(cols, rows - 1)
-        self.node_list = {}
 
-    def __make_node(self):
-        id = self.generate_id()
-        new_node = Node(self, id)
-        self.node_list[id] = new_node
-        return self.node_list[id]
+
+    def recalculate_column_heights(self):
+
+        self.column_heights = []
+        for col in range(len(self.board[0])):  # Assuming the grid has at least one row
+            height = sum(row[col] is not None for row in self.board)
+            self.column_heights.append(height)
+        return self.column_heights
+
+    def load_node(self, id):
+        grid_list = [int(cell) if cell.isdigit() else None for cell in id]
     
-    def get_node(self, board_id):
-        '''
-            Return node from dict or make new node if it doesnt exist
-        '''
-        return self.node_list.get(board_id, self.__make_node())
+        # Reshape the list into a NumPy array of shape (rows, cols)
+        grid = np.array(grid_list, dtype=object).reshape(self.rows, self.cols)
+
+
+        self.board = grid
+        self.recalculate_column_heights()
 
 
     '''
@@ -52,20 +58,18 @@ class Board:
             return True
         return False 
 
-
     '''
     TODO: Change to optimized version
 
     Generates an id based on the current board state
     '''
     def generate_id(self):
-        encoded_board = np.where(self.board == None, -1, self.board)
-        
-        board_bytes = encoded_board.tobytes()
-        
-        board_id = hashlib.sha256(board_bytes).hexdigest()
-        
-        return board_id
+        id = ''.join(
+            str(cell) if cell is not None else '.'
+            for row in self.board
+            for cell in row
+        )
+        return id
 
     def print(self):
         '''

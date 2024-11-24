@@ -165,6 +165,80 @@ class Game:
             return True
         return False
     
+    def look_forward(self):
+        '''
+        Look forward into future game states and learn their weights
+        Return game to normal after learning
+        '''
+        
+        
+        for col, is_legal in enumerate(self.current_node.legal_moves):
+            if is_legal and not self.current_node.explored[col]: # If legal and not explored
+                self.__push_forward_move(col)
+                self.__pop_back_move(col)
+ 
+
+        pass
+
+    
+    def __push_forward_move(self, col):
+        old_key = self.current_node.id
+        if self.board.drop_disc(col, self.current_player):
+            self.node_map[old_key].last_move(col)
+            self.node_map[old_key].increment_visits()
+            self.__switch_current_player()
+            # Update the game state
+            new_state = self.current_node.get_next_key(col) or self.board.board_to_key()
+
+            # Retrieve or create the node for the new state
+            
+            self.current_node = self.__get_or_create_node(new_state)
+            
+            if self.check_for_win():
+                #self.display()
+                #print("Winner", self.current_player)
+                self.__switch_current_player()
+                self.adjust_weights(winner=self.current_player, learning_rate=0.5)
+                self.__switch_current_player()
+                #self.node_map[old_key].adjust_weights_fuzzy(winner = self.current_player, depth=1, rate=0.5, debug=True)
+                self.current_node = self.node_map[old_key]
+                return self.current_node
+            elif self.board.board_is_full():
+                self.display()
+                print("Tie")
+                self.node_map[old_key].adjust_weights_fuzzy(winner = 0, depth=1, rate=0.5, debug=True)
+                self.current_node = self.node_map[old_key]
+                return self.current_node
+            # Track the node in the history
+            self.history.append(self.current_node)
+
+            ''''''
+        
+            for col, is_legal in enumerate(self.current_node.legal_moves):
+                child_node = None
+                if is_legal and not self.current_node.explored[col]: # If legal and not explored
+                    child_node = self.__push_forward_move(col)
+                    self.current_node.lastmove = col
+                    self.__pop_back_move(col)
+
+                    self.current_node.adjust_weights_fuzzy(winner = 0, depth = 2, rate = 0.5, last_node = child_node, debug = True)
+                elif is_legal and self.current_node.explored[col]:
+                    print("explored!!!")
+                    print(self.current_node.move_weights)
+                    
+        
+            # push forward all not explored legal moves
+
+        return self.current_node
+    
+    def __pop_back_move(self, col):
+        
+        self.history.pop()
+        self.board.undrop_disc(col)
+        self.current_node = self.history[-1]
+        self.__switch_current_player()
+        pass
+    
     def check_for_win(self):
         """
         Checks if a win condition is met on the game board based on the last dropped token.

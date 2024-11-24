@@ -1,11 +1,11 @@
 
 
-
 from node import Node
 from board import Board
+from model import C4Model
 
 
-board = Board()
+
 
 '''
 TODO: Make it so the program learns based of a current state.
@@ -13,11 +13,22 @@ TODO: Make it so the program learns based of a current state.
       For example after each player move simulate 10000 possible games and learn from them.
 '''
 
-board.print()
-print()
+model = C4Model(6, 7)
 
-board.drop_token('x',1)
 
-board.drop_token('o',1)
+model.print()
+model.board.drop_token("1",1)
+model.board.drop_token("2",1)
+model.board.drop_token("1",2)
+node = model.get_node()
+print(node.id)
+model.board.drop_token("2",3)
 
-board.print()
+model.print()
+print(model.move_history[0].id)
+model.board.load_node(model.move_history[0].id)
+model.print()
+
+print(model.random_ai())
+model.board.load_node(node.id)
+model.print()
