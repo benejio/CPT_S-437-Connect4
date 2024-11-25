@@ -33,6 +33,8 @@ class Board:
         self.board = grid
         self.recalculate_column_heights()
 
+    def is_board_full(self):
+        return not np.any(self.board == None)
 
     '''
         Returns the row that is next in drop order
@@ -52,10 +54,21 @@ class Board:
         if col < 0 or col >= self.cols:
             return False
         row = self.__find_clear_space(col)
-        if row:
+        if row is not None:
             self.board[row][col] = token
             self.column_heights[col] -= 1
             return True
+        return False 
+
+    def remove_token(self, col):
+        if col < 0 or col >= self.cols:
+            return False
+        for i in range(self.rows):
+            if self.board[i][col] is not None:
+                self.board[i][col] = None
+                self.column_heights[col] += 1
+                return True
+
         return False 
 
     '''
