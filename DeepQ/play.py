@@ -1,89 +1,145 @@
-# Import necessary libraries and modules
-import torch                                            # PyTorch for model handling
-import random                                           # For random move selection
-import numpy as np                                      # For numerical operations
-from Connect4 import Connect4, ROWS, COLUMNS, EMPTY     # Import Connect4 game class and constants
-from network import Connect4Net                         # Import the neural network for Connect4
-from train import load_checkpoint                       # Import the function to load a trained model checkpoint
+import tkinter as tk                                     # GUI library for creating the Connect 4 interface
+from tkinter import messagebox                          # For displaying popup messages in the GUI
+import torch                                            # PyTorch for loading and running the AI model
+import random                                           # For selecting random moves when necessary
+import numpy as np                                      # For numerical operations on the game board
+from Connect4 import Connect4, ROWS, COLUMNS, EMPTY     # Import Connect 4 game logic and constants
+from network import Connect4Net                         # Import the neural network model for Connect 4
+from train import load_checkpoint                       # Import function to load a trained model checkpoint
 
-# Set the device to GPU if available, otherwise use CPU
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Set device for model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Use GPU if available, otherwise CPU
 
-def play_against_model(model_path="checkpoint.pth"):
-    # Load the neural network model
-    model = Connect4Net().to(device)                            # Initialize the model and move it to the selected device
-    model.eval()                                                # Set the model to evaluation mode (disables training-specific layers like dropout)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)  # Optimizer is needed for loading checkpoint
+class Connect4GUI:
+    def __init__(self, root, model_path="checkpoint.pth"):
+        self.root = root                                # Reference to the root Tkinter window
+        self.root.title("Connect 4")                   # Set the title of the window
 
-    # Load the trained model weights and optimizer state from the checkpoint
-    _, _ = load_checkpoint(model_path, model, optimizer)
+        # Initialize model
+        self.model = Connect4Net().to(device)          # Load the Connect 4 neural network model
+        self.model.eval()                              # Set the model to evaluation mode
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)  # Dummy optimizer for loading checkpoint
+        _, _ = load_checkpoint(model_path, self.model, optimizer)        # Load the trained model weights
 
-    # Initialize the Connect4 game
-    game = Connect4()   # Create a new Connect4 game instance
-    game.reset()        # Reset the game board to its initial state
-    done = False        # Flag to indicate whether the game is over
+        # Initialize game
+        self.game = Connect4()                         # Create a new Connect 4 game instance
+        self.game.reset()                              # Reset the game to its initial state
 
-    # Print instructions for the player
-    print("Welcome to Connect 4! You are Player 1. Enter a column number (0-6) to make a move.")
+        # Create board UI
+        self.buttons = [                               # Create a list of buttons for dropping pieces into columns
+            tk.Button(root, text=f"Drop {col}", command=lambda c=col: self.player_move(c))
+            for col in range(COLUMNS)
+        ]
+        for col, btn in enumerate(self.buttons):       # Place the buttons at the top of the window
+            btn.grid(row=0, column=col)
 
-    while not done:         # Loop until the game is finished
-        game.print_board()      # Print the current game board
+        self.cells = [                                 # Create labels for each cell in the Connect 4 board
+            [tk.Label(root, text=" ", width=5, height=2, bg="blue", fg="white", relief="ridge")
+             for _ in range(COLUMNS)] for _ in range(ROWS)
+        ]
+        for r in range(ROWS):                          # Place the labels in a grid below the buttons
+            for c in range(COLUMNS):
+                self.cells[r][c].grid(row=r+1, column=c)
 
-        # Player move
-        player_move = int(input("Your move (0-6): "))   # Get player's move as input
-        if not game.make_move(player_move):             # Validate and make the move
-            print("Invalid move. Try again.")           # Notify if the move is invalid
-            continue                                    # Retry if the move was invalid
+    def player_move(self, col):
+        if not self.game.make_move(col):               # Check if the move is valid; if not, show an error message
+            messagebox.showerror("Invalid Move", "Column is full. Try another!")  # Display error
+            return                                     # Exit if the move is invalid
 
-        if game.check_winner():                         # Check if the player has won
-            game.print_board()                          # Print the final board state
-            print("Congratulations! You win!")          # Notify the player of their victory
-            break                                       # End the game loop
+        self.update_board()                            # Update the board display after the player's move
+        if self.game.check_winner():                  # Check if the player has won
+            messagebox.showinfo("You Win!", "Congratulations! You have won the game!")  # Show win message
+            self.reset_game()                         # Reset the game
+            return
+        elif np.all(self.game.board != EMPTY):        # Check for a draw (board is full)
+            messagebox.showinfo("Draw", "It's a draw!")  # Show draw message
+            self.reset_game()                         # Reset the game
+            return
 
-        game.switch_player()  # Switch to the AI player
+        self.game.switch_player()                     # Switch to the AI player
+        self.ai_move()                                # Let the AI make its move
 
-        # AI move
-        # Prepare the current game board as input to the AI model
-        state_tensor = torch.tensor(game.board, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
+    def ai_move(self):
+        """
+        Let the AI calculate and perform its move using Q-values from the model or by blocking the opponent.
+        """
+        state_tensor = torch.tensor(                  # Convert the current board state to a PyTorch tensor
+            self.game.board, dtype=torch.float32
+        ).unsqueeze(0).unsqueeze(0).to(device)
 
-        # print(f"Shape of state_tensor: {state_tensor.shape}")  # Debugging: Check input tensor shape
+        with torch.no_grad():                         # Disable gradient computation for inference
+            q_values = self.model(state_tensor)       # Predict Q-values for each column using the AI model
 
-        # Predict Q-values for each column using the AI model
-        with torch.no_grad():   # Disable gradient computation for efficiency
-            q_values = model(state_tensor)
-        # print(f"Q-values for AI: {q_values}")  # Debugging: Inspect the AI's predicted Q-values
-
-        # Choose the AI move based on Q-values or block the opponent's winning move
-        for col in range(COLUMNS):                              # Iterate through all possible columns
-            temp_game = Connect4()                              # Create a temporary game instance
-            temp_game.board = game.board.copy()                 # Copy the current board state
-            temp_game.current_player = -game.current_player     # Set the opponent's perspective
-            if temp_game.is_valid_location(col):                # Check if the column is a valid move
-                temp_game.make_move(col)                        # Make the move in the temporary game
-                if temp_game.check_winner():                    # Check if this move blocks the opponent's win
-                    ai_move = col                               # Choose this move to block the win
+        # Check for a winning move for the AI
+        for col in range(COLUMNS):
+            temp_game = Connect4()
+            temp_game.board = self.game.board.copy()
+            temp_game.current_player = self.game.current_player  # AI's perspective
+            if temp_game.is_valid_location(col):                # Ensure the column is valid
+                temp_game.make_move(col)
+                if temp_game.check_winner():                   # Check if this move wins the game for AI
+                    ai_move = col                              # AI selects this move
+                    print(f"AI chooses winning move: Column {col}")  # Debugging statement
                     break
-        else:
-            # Default to Q-value-based decision
-            if torch.allclose(q_values, q_values[0]):  # If all Q-values are very similar, choose randomly
-                ai_move = random.choice([col for col in range(COLUMNS) if game.is_valid_location(col)])
-            else:
-                ai_move = torch.argmax(q_values).item()  # Choose the column with the highest Q-value
+        else:  # If no winning move is found
+            # Block opponent's winning move
+            for col in range(COLUMNS):
+                temp_game = Connect4()
+                temp_game.board = self.game.board.copy()
+                temp_game.current_player = -self.game.current_player  # Opponent's perspective
+                if temp_game.is_valid_location(col):
+                    temp_game.make_move(col)
+                    if temp_game.check_winner():  # If this move blocks the opponent's win
+                        ai_move = col            # Choose this move to block
+                        print(f"AI blocks opponent's winning move: Column {col}")  # Debugging statement
+                        break
+            else:  # If no blocking is needed
+                if torch.allclose(q_values, q_values[0]):  # Check if all Q-values are similar (no strong preference)
+                    ai_move = random.choice([col for col in range(COLUMNS) if self.game.is_valid_location(col)])
+                    print(f"AI chooses random move: Column {ai_move}")  # Debugging statement
+                else:
+                    ai_move = torch.argmax(q_values).item()  # Choose the column with the highest Q-value
+                    print(f"AI chooses best Q-value move: Column {ai_move}")  # Debugging statement
 
-        print(f"AI selects column {ai_move}")   # Notify the player of the AI's move
-        game.make_move(ai_move)                 # Make the AI's move on the actual game board
+        # Perform the AI's move
+        if not self.game.make_move(ai_move):         # Make the AI's move and ensure it's valid
+            print("AI attempted an invalid move.")   # Debugging statement
+            return
 
-        if game.check_winner():                         # Check if the AI has won
-            game.print_board()                              # Print the final board state
-            print("AI wins! Better luck next time.")        # Notify the player of the AI's victory
-            done = True                                     # Mark the game as finished
-        elif np.all(game.board != EMPTY):               # Check if the board is full (a draw)
-            game.print_board()                              # Print the final board state
-            print("It's a draw!")                           # Notify the player of the draw
-            done = True                                     # Mark the game as finished
+        # Update the board display after AI's move
+        self.update_board()
 
-        game.switch_player()  # Switch back to the human player after the AI's move
+        # Check if the AI has won
+        if self.game.check_winner():
+            messagebox.showinfo("AI Wins", "AI wins! Better luck next time.")  # Notify user of AI's win
+            self.reset_game()  # Reset the game
+        elif np.all(self.game.board != EMPTY):      # Check for a draw (board is full)
+            messagebox.showinfo("Draw", "It's a draw!")  # Notify user of a draw
+            self.reset_game()  # Reset the game
 
-# Entry point for the script
+        # Switch back to the human player
+        self.game.switch_player()
+
+    def update_board(self):
+        for r in range(ROWS):                       # Iterate through all rows
+            for c in range(COLUMNS):                # Iterate through all columns
+                cell_value = self.game.board[r][c]  # Get the value of the current cell
+                if cell_value == 1:                 # If the cell belongs to Player 1
+                    self.cells[r][c]["text"] = "X"  # Display "X"
+                    self.cells[r][c]["bg"] = "red"  # Set background to red
+                elif cell_value == -1:              # If the cell belongs to Player -1 (AI)
+                    self.cells[r][c]["text"] = "O"  # Display "O"
+                    self.cells[r][c]["bg"] = "yellow"  # Set background to yellow
+                else:                               # If the cell is empty
+                    self.cells[r][c]["text"] = " "  # Clear text
+                    self.cells[r][c]["bg"] = "blue"  # Set background to blue
+
+    def reset_game(self):
+        self.game.reset()                           # Reset the game state
+        self.update_board()                         # Clear the board display
+
+# Run the application
 if __name__ == "__main__":
-    play_against_model()  # Call the function to play against the AI model
+    root = tk.Tk()                                  # Create the main Tkinter window
+    app = Connect4GUI(root)                         # Create the Connect 4 GUI
+    root.mainloop()                                 # Start the Tkinter event loop
