@@ -1,6 +1,6 @@
 from node import Node
 from model import C4Model
-import json # for saving
+import json
 import gzip
 
 
@@ -9,10 +9,12 @@ def save(model, file_path):
     Saves the model's information, including nodes in node_list, to a file.
     """
     try:
-        # Create a list of serializable representations of nodes
+        # data is the information needed to reconstruct a model
+        # nodes are all nodes in the model
+        # other attributes are things like # rows, # cols and node count
         data = {
             "nodes": {key: node.to_dict() for key, node in model.node_list.items()},
-            "other_attributes": model.get_attributes(),  # Add other model-level attributes if needed
+            "other_attributes": model.get_attributes(),
         }
 
 
@@ -41,7 +43,7 @@ def save_zip(model, file_path):
         print(f"An error occurred while saving the model: {e}")
 
 
-def load( file_path):
+def load(file_path):
     """
     Loads the model's information from a gzip-compressed JSON file.
     """

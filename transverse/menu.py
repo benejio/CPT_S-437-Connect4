@@ -104,13 +104,13 @@ class Menu:
             self.model.print()
             if (self.model.tie_detected() or self.model.win_detected(last_move)):
                     break
-            self.model.train(self.model.explore_ai, 5000,1000,2)
+            self.model.train(self.model.explore_ai, 500,100,2)
             last_move = function2()
             self.model.push_move(2, last_move)
             self.model.print()
             if (self.model.tie_detected() or self.model.win_detected(last_move)):
                     break
-            self.model.train(self.model.explore_ai, 5000,1000,1)
+            self.model.train(self.model.explore_ai, 500,100,1)
         while(self.model.pop_move()):
             pass
 
