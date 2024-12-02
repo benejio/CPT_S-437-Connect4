@@ -3,18 +3,23 @@ from board import Board
 from model import C4Model
 import save_system
 import os
-import pickle
 import random
 
 class Menu:
 
     def __init__(self):
+        '''
+            Inits the menu by starting the main loop
+        '''
         self.model = None
         self.running = True
         self.main_loop()
 
 
     def main_loop(self):
+        '''
+            Main loop of menu
+        '''
         while(self.running):
             if self.model is None:
                 self.choose_model_menu()
@@ -22,6 +27,9 @@ class Menu:
                 self.main_menu()
 
     def create_model_menu(self):
+        '''
+            Simple menu to create a new model
+        '''
         print()
         print("---- Create the Model ----")
         print("Enter grid dimensions")
@@ -30,9 +38,12 @@ class Menu:
         self.model = C4Model(rows,cols)
 
     def load_model_menu(self):
+        '''
+            Menu for loading the model.
+            displays models in the model folder for selection by user
+        '''
         print("\n---- Select Model from File ----")
         
-        # List files in the "models" folder
         model_folder = "models"
         if not os.path.exists(model_folder):
             print(f"Folder '{model_folder}' does not exist. ")
@@ -44,12 +55,10 @@ class Menu:
             print(f"No files found in the '{model_folder}' folder.")
             return None
         
-        # Display files with an index for selection
         print("Available models:")
         for idx, file in enumerate(files):
             print(f"{idx + 1}. {file}")
         
-        # Get user input to select a file
         while True:
             try:
                 choice = int(input("Enter the number of the model you want to load: "))
@@ -86,17 +95,26 @@ class Menu:
             print("invalid input")
         
     def save_model_menu(self):
+        '''
+            Saves the model to an file based on user input
+        '''
         file_name = input("Enter the file name to save to (e.g., 'c4_model_6x7_01.zip'): ").strip()
 
-        # Define the directory and ensure it exists
         model_dir = "models"
         os.makedirs(model_dir, exist_ok=True)
 
-        # Combine directory and file name to form the full file path
         file_path = os.path.join(model_dir, file_name)
         save_system.save_zip(self.model, file_path)
 
     def play(self, function1, function2):
+        '''
+            Plays a game of connect 4 where function1 controls player 1 and function2 controls player 2
+            Avaliable functions are:
+                player_move()
+                best_ai()
+                random_ai()
+                minimax_ai(playerToken)
+        '''
         last_move = 1
         while(True):
             last_move = function1()
@@ -161,7 +179,7 @@ class Menu:
 
 if __name__ == "__main__":
     print()
-    print("Welcome to Connect 4 AI")
+    print("Welcome to Connect 4 AI Using MCTS")
     Menu()
 
     
