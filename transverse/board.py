@@ -82,7 +82,62 @@ class Board:
             for row in self.board
             for cell in row
         )
+        print()
+        print("Original ID:", id)
+        print("General  ID:", self.generate_general_board_id())
+        self.print()
         return id
+
+    def generate_general_board_id(self):
+        """
+        Generates a generalized version of the board ID where:
+        - Irrelevant tokens (cannot contribute to a Connect 4) are replaced with '0'.
+        - Empty spaces (None) are represented as '.'.
+        """
+        rows, cols = self.board.shape
+        
+        def is_relevant_token(row, col):
+            """
+            Checks if the token at (row, col) is relevant for a future Connect 4.
+            Includes blank spaces in the potential line count.
+            """
+            if self.board[row, col] is None:
+                return False
+            
+            token = self.board[row, col]
+            directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # Horizontal, vertical, and two diagonals
+
+            for dr, dc in directions:
+                count = 1  # Include the current token
+                # Check forward direction
+                r, c = row + dr, col + dc
+                while 0 <= r < rows and 0 <= c < cols and (self.board[r, c] == token or self.board[r, c] is None):
+                    count += 1
+                    r += dr
+                    c += dc
+                
+                # Check backward direction
+                r, c = row - dr, col - dc
+                while 0 <= r < rows and 0 <= c < cols and (self.board[r, c] == token or self.board[r, c] is None):
+                    count += 1
+                    r -= dr
+                    c -= dc
+                
+                # If the token could be part of a line of 4 or more, it's relevant
+                if count >= 4:
+                    return True
+            
+            return False
+
+        # Construct the generalized board ID
+        id = ''.join(
+            str(self.board[row, col]) if is_relevant_token(row, col)
+            else ('0' if self.board[row, col] is not None else '.')
+            for row in range(rows)
+            for col in range(cols)
+        )
+        return id
+
 
     def print(self):
         '''
