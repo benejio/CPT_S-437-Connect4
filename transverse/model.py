@@ -1,5 +1,6 @@
 
 import random
+import math
 from board import Board
 from node import Node
 
@@ -8,24 +9,46 @@ class C4Model:
     def __init__(self, rows, cols):
 
         self.board = Board(rows, cols)
-        self.node_list = {}
-        self.move_history = []
-        self.look_ahead = []
-        self.current_node = None
-        self.col_list = []
-        self.got_nodes = 0
-        self.made_nodes = 0
-        self.found_nodes = 0
+        self.node_list = {} # Dict of all nodes that make up the model
+        self.move_history = [] # History of nodes in current board state
+        self.current_node = None # current node
+        self.col_list = [] # list of column numbers that lead to current board state
+        self.made_nodes = 0 # number of nodes in node_list
 
         self.__init_node_list()
 
+    def __init_node_list(self):
+        self.current_node = self.get_node()
+        self.move_history.append(self.current_node)
+
+    @classmethod
+    def from_model_attributes(cls, node_list, model_params):
+        """
+        Alternative constructor to initialize C4Model with an existing node list and model parameters.
+        """
+        # Extract rows and columns from model parameters
+        rows = model_params.get("rows")
+        cols = model_params.get("cols")
+
+        # Create a new C4Model instance
+        instance = cls(rows, cols)
+
+        # Set attributes based on provided data
+        instance.node_list = node_list
+        instance.move_history.pop()
+        instance.current_node = node_list[instance.board.generate_general_board_id()]
+        instance.move_history.append(instance.current_node)
+
+        instance.made_nodes = model_params.get("made_nodes", len(node_list))
+
+        return instance
 
     def __make_node(self, board_id = None):
         if board_id is not None:
             id = board_id
         else:
-            id = self.board.generate_id()
-        new_node = Node(self.board, id)
+            id = self.board.generate_general_board_id()
+        new_node = Node.from_board(self.board, id)
         self.node_list[id] = new_node
         self.made_nodes +=1
         return self.node_list[id]
@@ -34,22 +57,11 @@ class C4Model:
         '''
             Return node from dict or make new node if it doesnt exist
         '''
-        self.got_nodes +=1
         if board_id in self.node_list:
-            self.found_nodes += 1
             return self.node_list[board_id]
         return self.node_list.get(board_id, self.__make_node(board_id))
 
-    def __init_node_list(self):
-        self.current_node = self.get_node()
-        self.move_history.append(self.current_node)
-        
 
-
-    def look_ahead(self, node):
-        # Stop if node does not exist or no legal moves
-        # Call look_ahead on legal moves
-        pass
 
 
     def random_ai(self):
@@ -73,8 +85,68 @@ class C4Model:
         if not legal_moves:
             return None
 
+        
         selected_move = random.choices(legal_moves, k=1)[0]
         return selected_move
+    
+    def minimax_ai(self, starting_token):
+        legal_moves = [i for i, is_legal in enumerate(self.current_node.legal_moves) if is_legal]
+        move_weights = []
+        # Check if there are any valid legal moves
+        if not legal_moves:
+            return None
+        
+        for move in legal_moves:
+            move_weights.append(self.minimax(4, move, alpha=-math.inf, beta=math.inf, maximizingPlayer=starting_token))
+            self.pop_move()
+        
+        best_move = max(zip(legal_moves, move_weights), key=lambda x: x[1])[0]
+
+        return best_move
+
+        
+
+
+    def minimax(self, depth, col, alpha, beta, maximizingPlayer):
+        
+        self.push_move(maximizingPlayer, col)
+        
+        legal_moves = [i for i, is_legal in enumerate(self.current_node.legal_moves) if is_legal]
+
+        if depth == 0 or self.tie_detected() or self.win_detected(col):
+            #print(self.current_node.legal_moves)
+            evaluation = self.current_node.move_weights[self.best_ai()]
+            #print("eval at depth ", depth, ":", evaluation)
+            return evaluation
+        
+        if maximizingPlayer == 1:
+            self.train(self.explore_ai, 25, 10, 2)
+            maxEval = -math.inf
+            for move in legal_moves:
+                eval = self.minimax(depth-1, move, alpha, beta, 2)
+                maxEval = max(maxEval, eval)
+                alpha = max(alpha, eval)
+                self.pop_move()
+                if beta <= alpha:
+                    #print("Beta less than alpha")
+                    break;
+            if col == -1:
+                print("original thread eval:", maxEval)
+            return maxEval
+        else:
+            self.train(self.explore_ai, 25, 10, 1)
+            minEval = math.inf
+            for move in legal_moves:
+                eval = self.minimax(depth-1, move, alpha, beta, 1)
+                minEval = min(minEval, eval)
+                beta = min(beta, eval)
+                self.pop_move()
+                if beta <= alpha:
+                    #print("Beta less than alpha")
+                    break;
+            return minEval
+                
+
     
     def best_ai(self):
         legal_moves = [i for i, is_legal in enumerate(self.current_node.legal_moves) if is_legal]
@@ -95,7 +167,7 @@ class C4Model:
             return False
         if self.board.drop_token(token, col):
             self.current_node.last_used_move = col
-            self.current_node = self.get_node(self.board.generate_id())
+            self.current_node = self.get_node(self.board.generate_general_board_id())
             self.move_history.append(self.current_node)
             self.col_list.append(col)
             return True
@@ -131,8 +203,6 @@ class C4Model:
             while root_node.fully_explored() is False and its < iterations:
                 its+=1
                 move = function()
-                # print("Self", self.col_list)
-                # print("got:", self.got_nodes, " made:", self.made_nodes, "found:", self.found_nodes)
                 while self.push_move(token, move):
                     token = self.switch_token(token)
                     if self.win_detected(self.col_list[-1]):
@@ -234,3 +304,14 @@ class C4Model:
         self.current_node.print_move_weights()
         
         self.board.print()
+
+
+    def get_attributes(self):
+        return {
+            "cols": self.board.cols,
+            "rows": self.board.rows,
+            "total_nodes": self.made_nodes
+        }
+    
+    def __str__(self):
+        return f"rows:{self.board.rows} cols: {self.board.cols} - nodes: {self.made_nodes}"
