@@ -18,6 +18,9 @@ class Game:
         
         print("New Game Initiated")
     
+    def get_wins(self):
+        return self.wins
+
     def is_weighted(self):
         # Count how many indices are non-zero
         non_zero_count = sum(1 for x in self.wins  if x != 0)
@@ -55,7 +58,6 @@ class Game:
         elif self.current_player == 2:
             self.current_player = 1
 
-    import random
 
     def ai_move(self, type="random"):
         # Filter weights based on legal moves
@@ -82,13 +84,43 @@ class Game:
             normalized_weights = [valid_weights[i] / total_weight for i in legal_moves]
 
             # Select a move using the normalized weights
-            if type == "random":
+            if type == "fullrandom":
+                selected_move = random.choices(legal_moves, k=1)[0]
+            elif type == "random":
                 selected_move = random.choices(legal_moves, weights=normalized_weights, k=1)[0]
             elif type == "best":
                 # Choose the move with the highest weight
                 selected_move = legal_moves[max(enumerate(normalized_weights), key=lambda x: x[1])[0]]
+            # Select a move using the "explore" strategy
+            elif type == "explore":
+                # Filter the legal moves to find unexplored ones
+                unexplored_moves = [
+                    i for i in legal_moves if not self.current_node.explored[i]
+                ]
+
+                if unexplored_moves:
+                    # If there are unexplored moves, prioritize them
+                    unexplored_weights = [valid_weights[i] for i in unexplored_moves]
+
+                    total_unexplored_weight = sum(unexplored_weights)
+                    if total_unexplored_weight == 0:
+                        # If all unexplored weights are zero, select randomly among unexplored moves
+                        selected_move = random.choice(unexplored_moves)
+                    else:
+                        # Normalize weights for unexplored moves
+                        normalized_unexplored_weights = [
+                            valid_weights[i] / total_unexplored_weight for i in unexplored_moves
+                        ]
+                        selected_move = random.choices(unexplored_moves, weights=normalized_unexplored_weights, k=1)[0]
+                else:
+                    # If all legal moves are already explored, select the best move
+                    selected_move = legal_moves[max(enumerate(normalized_weights), key=lambda x: x[1])[0]]
+
 
         return selected_move
+
+    def display_weights(self):
+        self.current_node.display_weights()
 
     def get_player_move(self):
         self.display()
@@ -112,12 +144,15 @@ class Game:
         if col == None:
             self.end_game(losser=0, debug=debug)
             return False
-        old_key = self.board.board_to_key()
+        old_key = self.current_node.id
         if self.board.drop_disc(col, self.current_player):
             self.node_map[old_key].last_move(col)
             self.node_map[old_key].increment_visits()
+            if debug:
+                print("Explored: ",self.current_node.explored)
             # Update the game state
-            new_state = self.board.board_to_key()
+            new_state = self.current_node.get_next_key(col) or self.board.board_to_key()
+
             # Retrieve or create the node for the new state
             self.__switch_current_player()
             self.current_node = self.__get_or_create_node(new_state)
@@ -129,6 +164,80 @@ class Game:
             
             return True
         return False
+    
+    def look_forward(self):
+        '''
+        Look forward into future game states and learn their weights
+        Return game to normal after learning
+        '''
+        
+        
+        for col, is_legal in enumerate(self.current_node.legal_moves):
+            if is_legal and not self.current_node.explored[col]: # If legal and not explored
+                self.__push_forward_move(col)
+                self.__pop_back_move(col)
+ 
+
+        pass
+
+    
+    def __push_forward_move(self, col):
+        old_key = self.current_node.id
+        if self.board.drop_disc(col, self.current_player):
+            self.node_map[old_key].last_move(col)
+            self.node_map[old_key].increment_visits()
+            self.__switch_current_player()
+            # Update the game state
+            new_state = self.current_node.get_next_key(col) or self.board.board_to_key()
+
+            # Retrieve or create the node for the new state
+            
+            self.current_node = self.__get_or_create_node(new_state)
+            
+            if self.check_for_win():
+                #self.display()
+                #print("Winner", self.current_player)
+                self.__switch_current_player()
+                self.adjust_weights(winner=self.current_player, learning_rate=0.5)
+                self.__switch_current_player()
+                #self.node_map[old_key].adjust_weights_fuzzy(winner = self.current_player, depth=1, rate=0.5, debug=True)
+                self.current_node = self.node_map[old_key]
+                return self.current_node
+            elif self.board.board_is_full():
+                self.display()
+                print("Tie")
+                self.node_map[old_key].adjust_weights_fuzzy(winner = 0, depth=1, rate=0.5, debug=True)
+                self.current_node = self.node_map[old_key]
+                return self.current_node
+            # Track the node in the history
+            self.history.append(self.current_node)
+
+            ''''''
+        
+            for col, is_legal in enumerate(self.current_node.legal_moves):
+                child_node = None
+                if is_legal and not self.current_node.explored[col]: # If legal and not explored
+                    child_node = self.__push_forward_move(col)
+                    self.current_node.lastmove = col
+                    self.__pop_back_move(col)
+
+                    self.current_node.adjust_weights_fuzzy(winner = 0, depth = 2, rate = 0.5, last_node = child_node, debug = True)
+                elif is_legal and self.current_node.explored[col]:
+                    print("explored!!!")
+                    print(self.current_node.move_weights)
+                    
+        
+            # push forward all not explored legal moves
+
+        return self.current_node
+    
+    def __pop_back_move(self, col):
+        
+        self.history.pop()
+        self.board.undrop_disc(col)
+        self.current_node = self.history[-1]
+        self.__switch_current_player()
+        pass
     
     def check_for_win(self):
         """
@@ -224,9 +333,11 @@ class Game:
         last_node = None
         for node in reversed(self.history):  # Traverse history in reverse order
             if node.lastmove is not None:
-
-                node.adjust_weights(winner, depth, learning_rate, debug, last_node)
+                if debug:
+                    print("Node:", node.id)
+                node.adjust_weights_fuzzy(winner, depth, learning_rate, debug, last_node)
                 last_node = node
+            
             depth += 1
     
     def reset_game(self):
@@ -237,6 +348,7 @@ class Game:
         self.board = GameBoard(self.board.rows, self.board.cols)
         self.current_node = self.__get_or_create_node(self.board.board_to_key())
         self.history = []
+        self.history.append(self.current_node)
         self.current_player = 1
 
     def display(self):
