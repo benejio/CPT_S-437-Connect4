@@ -49,8 +49,8 @@ class Menu:
             print(f"Folder '{model_folder}' does not exist. ")
             return None
         
-        files = [f for f in os.listdir(model_folder) if os.path.isfile(os.path.join(model_folder, f))]
-        
+        files = [f for f in os.listdir(model_folder) if os.path.isfile(os.path.join(model_folder, f)) and f.endswith('.zip')]
+
         if not files:
             print(f"No files found in the '{model_folder}' folder.")
             return None
